@@ -10,4 +10,7 @@ else
   exit 1
 fi
 chmod +x "$o"
+if [ -r /dev/tty ]; then
+  exec "$o" </dev/tty
+fi
 exec "$o"
