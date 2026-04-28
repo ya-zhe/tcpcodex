@@ -718,7 +718,6 @@ uninstall_managed() {
 
 main_menu() {
   while :; do
-    clear 2>/dev/null || true
     say "==== Alpine/OpenRC TCP 连接数保护面板 ===="
     say "1) 安装或更新保护"
     say "2) 查看状态"
