@@ -135,6 +135,58 @@ ask_yes_no() {
   esac
 }
 
+add_service_name() {
+  svc="$1"
+  [ -z "$svc" ] && return 0
+  case " $service_names " in
+    *" $svc "*) ;;
+    *) service_names="${service_names:+$service_names }$svc" ;;
+  esac
+}
+
+choose_services() {
+  default="$1"
+
+  say ""
+  say "服务状态显示（可多选，仅用于查看状态，脚本不会停止它们）："
+  say "  1) xboard-node"
+  say "  2) xray"
+  say "  3) XrayR"
+  say "  4) mihomo"
+  say "  5) sing-box"
+  say "  6) hysteria-server"
+  say "  7) v2ray"
+  say "  8) V2bX"
+  say "  9) trojan-go"
+  say "  0) 不显示服务状态"
+  printf '请输入编号或服务名，多个用英文逗号/空格分隔 [%s]: ' "$default" >&2
+  read raw || raw=""
+  [ -z "$raw" ] && raw="$default"
+  raw="$(echo "$raw" | tr ',' ' ')"
+
+  service_names=""
+  for item in $raw; do
+    case "$item" in
+      0|none|None|NONE|无|不显示)
+        service_names=""
+        break
+        ;;
+      1) add_service_name xboard-node ;;
+      2) add_service_name xray ;;
+      3) add_service_name XrayR ;;
+      4) add_service_name mihomo ;;
+      5) add_service_name sing-box ;;
+      6) add_service_name hysteria-server ;;
+      7) add_service_name v2ray ;;
+      8) add_service_name V2bX ;;
+      9) add_service_name trojan-go ;;
+      *) add_service_name "$item" ;;
+    esac
+  done
+
+  printf '%s' "$service_names"
+}
+
 clamp_min() {
   v="$1"
   min="$2"
@@ -305,7 +357,8 @@ SOFT="$soft"
 HARD="$hard"
 CRITICAL="$critical"
 TRIM_ESTABLISHED="$trim_established"
-SERVICE_NAME="$service_name"
+SERVICE_NAMES="$service_names"
+SERVICE_NAME="$service_names"
 NORMAL_COMMENT="$NORMAL_COMMENT"
 EMERGENCY_COMMENT="$EMERGENCY_COMMENT"
 LOG="$LOG"
@@ -326,7 +379,7 @@ SOFT="${SOFT:-240}"
 HARD="${HARD:-360}"
 CRITICAL="${CRITICAL:-430}"
 TRIM_ESTABLISHED="${TRIM_ESTABLISHED:-1}"
-SERVICE_NAME="${SERVICE_NAME:-xboard-node}"
+SERVICE_NAMES="${SERVICE_NAMES:-${SERVICE_NAME:-xboard-node}}"
 NORMAL_COMMENT="${NORMAL_COMMENT:-tcp-cap-guard-normal}"
 EMERGENCY_COMMENT="${EMERGENCY_COMMENT:-tcp-cap-guard-emergency}"
 LOG="${LOG:-/var/log/tcp-guard.log}"
@@ -394,7 +447,7 @@ trim_proxy_sockets() {
 }
 
 ensure_normal_rule
-log_msg "已启动 上限=$CAP 恢复线=$SOFT 硬保护线=$HARD 临界线=$CRITICAL 入站限制=$INGRESS_LIMIT 端口=$PORTS 清理已建立连接=$TRIM_ESTABLISHED 服务=$SERVICE_NAME 动作=不停止服务"
+log_msg "已启动 上限=$CAP 恢复线=$SOFT 硬保护线=$HARD 临界线=$CRITICAL 入站限制=$INGRESS_LIMIT 端口=$PORTS 清理已建立连接=$TRIM_ESTABLISHED 状态服务=$SERVICE_NAMES 动作=不停止服务"
 
 while :; do
   count="$(ss -Htan 2>/dev/null | wc -l | tr -d ' ')"
@@ -523,7 +576,11 @@ status_view() {
     if [ -r "$CONF" ]; then
       # shellcheck disable=SC1090
       . "$CONF"
-      [ -n "${SERVICE_NAME:-}" ] && rc-service "$SERVICE_NAME" status 2>/dev/null || true
+      service_status_names="${SERVICE_NAMES:-${SERVICE_NAME:-}}"
+      for svc in $service_status_names; do
+        printf '%s: ' "$svc"
+        rc-service "$svc" status 2>/dev/null || true
+      done
     fi
   fi
 
@@ -542,14 +599,15 @@ install_or_update() {
 
   default_cap="480"
   default_ports="25001,25002"
-  default_service="xboard-node"
+  default_services="1"
 
   if [ -r "$CONF" ]; then
     # shellcheck disable=SC1090
     . "$CONF"
     [ -n "${CAP:-}" ] && default_cap="$CAP"
     [ -n "${PORTS:-}" ] && default_ports="$PORTS"
-    [ -n "${SERVICE_NAME:-}" ] && default_service="$SERVICE_NAME"
+    [ -n "${SERVICE_NAMES:-}" ] && default_services="$SERVICE_NAMES"
+    [ -z "${SERVICE_NAMES:-}" ] && [ -n "${SERVICE_NAME:-}" ] && default_services="$SERVICE_NAME"
   fi
 
   cap="$(ask_value "服务商 TCP 关机上限" "$default_cap")"
@@ -573,8 +631,7 @@ install_or_update() {
   fi
   port_list="$(ports_to_list "$ports")"
 
-  service_name="$(ask_value "服务名称，仅用于查看状态，脚本不会停止它" "$default_service")"
-  [ -z "$service_name" ] && service_name="$default_service"
+  service_names="$(choose_services "$default_services")"
 
   trim_established=1
   if ask_yes_no "达到临界线时是否踢掉已建立的代理 TCP？更安全，但可能让用户短暂断流" "y"; then
@@ -600,7 +657,11 @@ install_or_update() {
   say "  TIME_WAIT 上限=$tw_cap"
   say "  SYN 队列=$syn_backlog"
   say "  端口=$ports"
-  say "  服务=$service_name（仅查看状态，不会停止）"
+  if [ -n "$service_names" ]; then
+    say "  状态显示服务=$service_names（仅查看状态，不会停止）"
+  else
+    say "  状态显示服务=不显示"
+  fi
   say "  是否清理已建立连接=$trim_established"
   say ""
   if ! ask_yes_no "现在应用这些设置？" "y"; then
