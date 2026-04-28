@@ -1,5 +1,5 @@
 #!/bin/sh
-u="https://raw.githubusercontent.com/ya-zhe/tcpcodex/2b0feebf983afb9c4ba51d7b3af379452d2face7/tcp-limit-panel.sh"
+u="https://raw.githubusercontent.com/ya-zhe/tcpcodex/84d201226bfbd8297032e1169ea8608c50af7beb/tcp-limit-panel.sh"
 o="/root/tcp-limit-panel.sh"
 if command -v wget >/dev/null 2>&1; then
   wget -qO "$o" "$u"
