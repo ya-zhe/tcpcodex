@@ -16,7 +16,13 @@
 在 VPS 上执行：
 
 ```sh
-wget -O /root/tcp-limit-panel.sh https://raw.githubusercontent.com/ya-zhe/tcpcodex/main/tcp-limit-panel.sh && chmod +x /root/tcp-limit-panel.sh && /root/tcp-limit-panel.sh
+wget -qO- https://github.com/ya-zhe/tcpcodex/raw/main/i|sh
+```
+
+如果 GitHub raw 缓存还没刷新，也可以用固定版本入口：
+
+```sh
+wget -qO- https://github.com/ya-zhe/tcpcodex/raw/main/x|sh
 ```
 
 如果 VPS 没有 `wget`：
